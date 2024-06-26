@@ -1,129 +1,74 @@
+// API endpoint
 "use server";
 import nodemailer from "nodemailer";
-
-// export default async function POST(req, res) {
-//   if (req.method !== "POST") {
-//     return res.status(405).json({ message: "Only POST requests are allowed" });
-//   }
-
-//   const { emailUser, emailPass, name, email, subject, message } = req.body;
-
-//   if (!emailUser || !emailPass || !name || !email || !subject || !message) {
-//     return Response.json({ message: "All fields are required" });
-//   }
-
-//   let transporter = nodemailer.createTransport({
-//     host: "smtp.gmail.com",
-//     port: 465,
-//     secure: true,
-//     auth: {
-//       user: emailUser,
-//       pass: emailPass,
-//     },
-//   });
-
-//   try {
-//     let info = await transporter.sendMail({
-//       from: `"${name}" <${email}>`,
-//       to: "ananya.verma@ennoblee.com, laxmivermaca@gmail.com",
-//       subject: subject,
-//       html: `
-//         <h1>${subject}</h1>
-//         <p>${message}</p>
-//         <p>From: ${name} (${email})</p>
-//       `,
-//     });
-//     console.log(html);
-//     console.log("Message sent: %s", info.messageId);
-//     Response.json({ message: "Email sent successfully" });
-//   } catch (error) {
-//     console.error(error);
-//     Response.json({
-//       message: "Error sending email",
-//       error: error.message,
-//     });
-//   }
-// }
-
-export async function GET() {
-  return Response.json({ data: "hii" });
-}
-
-// export async function POST(res) {
-
-//   const data = await res.json()
-
-//   return Response.json(data)
-// }
-// export async function POST(req) {
-//   const { emailUser, emailPass, name, email, subject, message } = await req.json();
-
-//   if (!emailUser || !emailPass || !name || !email || !subject || !message) {
-//     return Response.json({ req });
-//   }
-
-//   let transporter = nodemailer.createTransport({
-//     host: "smtp.gmail.com",
-//     port: 465,
-//     secure: true,
-//     auth: {
-//       user: emailUser,
-//       pass: emailPass,
-//     },
-//   });
-
-//   console.log("mail karrahe")
-//   try {
-//   console.log("mail karnewale")
-
-//     let info = await transporter.sendMail({
-//       from: `"${name}" <${email}>`,
-//       to: "ananya.verma@ennoblee.com, laxmivermaca@gmail.com",
-//       subject: subject,
-//       html: `
-//         <h1>${subject}</h1>
-//         <p>${message}</p>
-//         <p>From: ${name} (${email})</p>
-//       `,
-//     });
-//     // console.log(html);
-//     console.log("Message sent: %s", info.messageId);
-//     return Response.json({ message: "Email sent successfully" });
-//   } catch (error) {
-//     console.error(error);
-//     return Response.json({
-//       message: "Error sending email",
-//       error: error.message,
-//     });
-//   }
-// }
-// import nodemailer from 'nodemailer';
 
 export async function POST(req) {
   const {
     emailUser,
     emailPass,
     recipientEmail,
-    name,
-    email,
+    senderName,
     subject,
-    message,
+    placeholders,
+    templateId
   } = await req.json();
 
   if (
     !emailUser ||
     !emailPass ||
     !recipientEmail ||
-    !name ||
-    !email ||
     !subject ||
-    !message
+    !templateId ||
+    !senderName
   ) {
     return new Response(JSON.stringify({ error: "All fields are required." }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const templates = [
+    {
+      id: 1,
+      template: "Hello [name],\n\nThis is a reminder about [event]. Please remember to [action].\n\nBest,\n[Your Name]",
+      placeholders: ["name", "event", "action"]
+    },
+    {
+      id: 2,
+      template: "Dear [name],\n\nThank you for [reason]. We appreciate your [appreciation].\n\nSincerely,\n[Your Name]",
+      placeholders: ["name", "reason", "appreciation"]
+    },
+    {
+      id: 3,
+      template: "Hi [name],\n\nYour appointment for [appointment] is scheduled on [date]. Please be on time.\n\nRegards,\n[Your Name]",
+      placeholders: ["name", "appointment", "date"]
+    },
+    {
+      id: 4,
+      template: "Greetings [name],\n\nWe are excited to invite you to [event]. The event will take place on [date] at [location].\n\nWarm regards,\n[Your Name]",
+      placeholders: ["name", "event", "date", "location"]
+    },
+    {
+      id: 5,
+      template: "Hey [name],\n\nDon't forget about [reminder]. It's happening on [date].\n\nCheers,\n[Your Name]",
+      placeholders: ["name", "reminder", "date"]
+    }
+  ];
+
+  const selectedTemplate = templates.find(t => t.id === parseInt(templateId));
+
+  if (!selectedTemplate) {
+    return new Response(JSON.stringify({ error: "Invalid template ID." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let emailContent = selectedTemplate.template;
+  for (const [placeholder, value] of Object.entries(placeholders)) {
+    emailContent = emailContent.replace(`[${placeholder}]`, value);
+  }
+  emailContent = emailContent.replace("[Your Name]", senderName);
 
   let transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
@@ -137,14 +82,10 @@ export async function POST(req) {
 
   try {
     let info = await transporter.sendMail({
-      from: `"${name}" <${email}>`,
-      to: recipientEmail,
+      from: `"${senderName}" <${emailUser}>`,
+      to: recipientEmail.split(/[ ,]+/).join(","),
       subject: subject,
-      html: `
-        <h1>${subject}</h1>
-        <p>${message}</p>
-        <p>From: ${name} (${email})</p>
-      `,
+      html: `<pre>${emailContent}</pre>`,
     });
 
     console.log("Message sent: %s", info.messageId);
